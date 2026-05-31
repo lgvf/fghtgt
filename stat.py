@@ -54,7 +54,7 @@ log("[INIT] Username checker started")
 
 def generate_random_username():
     while True:
-        length = random.choice([3])
+        length = random.choice([4])
 
         name = ''.join(random.choice(CHARS) for _ in range(length))
 
