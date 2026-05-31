@@ -15,7 +15,7 @@ COOLDOWN_MIN = 7
 COOLDOWN_MAX = 16
 MAX_RETRIES = 5
 
-CHARS = string.ascii_lowercase + string.digits + "_" + "."
+CHARS = string.ascii_lowercase + "_" + "."
 
 request_lock = threading.Lock()
 checked_lock = threading.Lock()
