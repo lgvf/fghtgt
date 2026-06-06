@@ -24,4 +24,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_WORKFLOW: checker.yml     # Must match your workflow filename
-        run: python fixed_username_checker.py
+        run: python stat.py
