@@ -9,10 +9,10 @@ from queue import Queue
 API = "https://discord.com/api/v9/unique-username/username-attempt-unauthed"
 WEBHOOK = "https://discord.com/api/webhooks/1508590349713408231/CIljNz9hoywwrkH9ZJ7cjWVwUi5gogPNdGlWXzYucncqQb13qZZpB6D-Vi6wCSaeZ4WT"
 
-# GitHub Actions Settings
+# GitHub Settings
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
-GITHUB_WORKFLOW = os.getenv("GITHUB_WORKFLOW")
+GITHUB_WORKFLOW = os.getenv("GITHUB_WORKFLOW")   # Must match your .yml filename exactly
 
 THREADS = 1
 COOLDOWN_MIN = 7
@@ -34,9 +34,8 @@ def log(msg):
     sys.stdout.flush()
 
 def trigger_new_workflow_run():
-    """Immediately trigger a new workflow run and exit"""
     if not all([GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_WORKFLOW]):
-        log("[GITHUB] Missing env vars - cannot trigger new run")
+        log("[GITHUB] Missing environment variables")
         return False
 
     owner, repo = GITHUB_REPOSITORY.split("/")
@@ -48,26 +47,24 @@ def trigger_new_workflow_run():
         "X-GitHub-Api-Version": "2022-11-28"
     }
 
-    payload = {
-        "ref": "main",        # Change to "master" if your default branch is master
-        "inputs": {}
-    }
+    payload = {"ref": "main"}   # ← Change to "master" if your default branch is master
 
     try:
         r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code in (200, 204):
-            log("[GITHUB] ✅ New workflow run triggered successfully!")
+            log("[GITHUB] ✅ Successfully triggered new workflow run!")
             return True
         else:
             log(f"[GITHUB] Trigger failed: {r.status_code} - {r.text}")
+            log(f"[DEBUG] Tried to call workflow: {GITHUB_WORKFLOW}")
             return False
     except Exception as e:
-        log(f"[GITHUB] Error triggering new run: {e}")
+        log(f"[GITHUB] Error: {e}")
         return False
 
 log("[INIT] Username checker started")
 
-# Load names.txt
+# Load names
 with open("names.txt", "r", encoding="utf-8") as f:
     for line in f:
         name = line.strip()
@@ -78,11 +75,10 @@ def send_webhook(name):
     if not WEBHOOK:
         return
     try:
-        session.post(
-            WEBHOOK,
-            json={"content": f"available: `{name}` @everyone", "allowed_mentions": {"parse": ["everyone"]}},
-            timeout=10
-        )
+        session.post(WEBHOOK, json={
+            "content": f"available: `{name}` @everyone",
+            "allowed_mentions": {"parse": ["everyone"]}
+        }, timeout=10)
         log(f"[WEBHOOK] Sent hit for {name}")
     except Exception as e:
         log(f"[WEBHOOK ERROR] {e}")
@@ -95,21 +91,21 @@ def check(name):
 
         if r.status_code == 200:
             data = r.json()
-            if data.get("taken", True):
-                log(f"[TAKEN] {name}")
-            else:
+            if not data.get("taken", True):
                 log(f"[OPEN] {name}")
                 with open("hits.txt", "a", encoding="utf-8") as f:
                     f.write(name + "\n")
                 log(f"[SAVED] {name} -> hits.txt")
                 send_webhook(name)
+            else:
+                log(f"[TAKEN] {name}")
             return
 
         elif r.status_code == 429:
-            log("[RATE LIMITED] → Triggering new GitHub workflow run immediately...")
+            log("[RATE LIMITED] → Triggering new workflow run...")
             trigger_new_workflow_run()
-            log("[EXIT] Rate limit detected → Exiting current run.")
-            sys.exit(0)   # Stop this run right away
+            log("[EXIT] Exiting current run so new one can start.")
+            sys.exit(0)
 
         else:
             log(f"[ERROR] {name} -> HTTP {r.status_code}")
@@ -123,7 +119,6 @@ def worker():
         if name in checked:
             names_queue.task_done()
             continue
-
         with checked_lock:
             checked.add(name)
 
@@ -131,17 +126,12 @@ def worker():
         names_queue.task_done()
         log(f"[TOTAL CHECKED] {len(checked)}")
 
-    log("[WORKER] Queue empty, exiting.")
-
-# Start workers
+# Start
 log(f"[START] Launching {THREADS} thread(s)")
-threads = []
-for i in range(THREADS):
-    t = threading.Thread(target=worker, daemon=True)
+threads = [threading.Thread(target=worker, daemon=True) for _ in range(THREADS)]
+for t in threads:
     t.start()
-    threads.append(t)
-
 for t in threads:
     t.join()
 
-log("[DONE] All names processed")
+log("[DONE] Run finished")
