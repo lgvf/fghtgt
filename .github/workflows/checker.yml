@@ -3,7 +3,7 @@ name: Discord Username Checker
 on:
   workflow_dispatch:   # Allow manual trigger
   schedule:
-    - cron: '*/30 * * * *'   # Adjust as needed
+    - cron: '*/2 * * * *'   # Adjust as needed
 
 jobs:
   check:
