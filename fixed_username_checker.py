@@ -20,11 +20,9 @@ def log(msg):
     print(msg, flush=True)
 
 def trigger_new_workflow_run():
-    if not GITHUB_WORKFLOW:
-        log(f"[GITHUB] GITHUB_WORKFLOW env var is empty!")
-        return
-
-    log(f"[GITHUB] Triggering workflow file: '{GITHUB_WORKFLOW}'")
+    if not all([GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_WORKFLOW]):
+        log("[GITHUB] Missing environment variables")
+        return False
 
     owner, repo = GITHUB_REPOSITORY.split("/")
     url = f"https://api.github.com/repos/{owner}/{repo}/actions/workflows/{GITHUB_WORKFLOW}/dispatches"
@@ -35,18 +33,22 @@ def trigger_new_workflow_run():
         "X-GitHub-Api-Version": "2022-11-28"
     }
 
+    log(f"[GITHUB] Triggering workflow: {GITHUB_WORKFLOW}")
+
     try:
         r = requests.post(url, json={"ref": "main"}, headers=headers, timeout=10)
         if r.status_code in (200, 204):
             log("[GITHUB] ✅ Successfully triggered new workflow run!")
+            return True
         else:
-            log(f"[GITHUB] Failed {r.status_code}: {r.text}")
+            log(f"[GITHUB] Failed: {r.status_code} {r.text}")
+            return False
     except Exception as e:
         log(f"[GITHUB] Error: {e}")
+        return False
 
-log("[INIT] Starting checker...")
+log("[INIT] Username checker started")
 
-# Load names
 names_queue = Queue()
 with open("names.txt", "r", encoding="utf-8") as f:
     for line in f:
@@ -69,9 +71,9 @@ def check(name):
                 log(f"[SAVED] {name}")
 
         elif r.status_code == 429:
-            log("[RATE LIMITED] → Triggering new run now...")
+            log("[RATE LIMITED] → Triggering new workflow run immediately...")
             trigger_new_workflow_run()
-            log("[EXIT] Exiting so new run can start.")
+            log("[EXIT] Exiting current run.")
             sys.exit(0)
 
         else:
@@ -80,7 +82,6 @@ def check(name):
     except Exception as e:
         log(f"[ERROR] {e}")
 
-# Run
 while not names_queue.empty():
     name = names_queue.get()
     check(name)
