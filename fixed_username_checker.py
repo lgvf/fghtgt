@@ -13,7 +13,7 @@ GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 GITHUB_WORKFLOW = "checker.yml"
 
 # Random username settings
-USERNAME_LENGTH = 4
+USERNAME_LENGTH = 3
 NUM_USERNAMES = 10000
 
 session = requests.Session()
@@ -73,7 +73,7 @@ def trigger_new_workflow_run():
 log("[INIT] Random 4-char username checker started")
 
 # Character set: lowercase letters + digits + underscore + period
-chars = string.digits + "_" + "."
+chars = string.ascii_lowercase + string.digits + "_" + "."
 
 names_queue = Queue()
 for _ in range(NUM_USERNAMES):
